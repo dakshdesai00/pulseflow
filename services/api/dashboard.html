@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>PulseFlow — Dashboard</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        <style>
+            :root {
+                --bg: #0f1724;
+                --card: #0b1220;
+                --muted: #94a3b8;
+                --accent: #60a5fa;
+                --glass: rgba(255, 255, 255, 0.03);
+                color-scheme: dark;
+                font-family:
+                    Inter,
+                    system-ui,
+                    -apple-system,
+                    "Segoe UI",
+                    Roboto,
+                    "Helvetica Neue",
+                    Arial;
+            }
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+                background: linear-gradient(180deg, #071029 0%, #07192a 100%);
+                color: #e6eef8;
+            }
+            .container {
+                max-width: 1200px;
+                margin: 24px auto;
+                padding: 20px;
+            }
+            header {
+                display: flex;
+                align-items: flex-start;
+                gap: 16px;
+            }
+            h1 {
+                margin: 0;
+                font-size: 22px;
+            }
+            p.subtitle {
+                margin: 0;
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            .stats-row {
+                display: flex;
+                gap: 12px;
+                margin-top: 18px;
+            }
+            .stat-card {
+                background: var(--card);
+                padding: 14px;
+                border-radius: 8px;
+                flex: 1;
+                box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6);
+            }
+            .stat-label {
+                font-size: 12px;
+                color: var(--muted);
+            }
+            .stat-value {
+                font-size: 20px;
+                font-weight: 700;
+                margin-top: 6px;
+            }
+
+            .controls {
+                margin-top: 12px;
+                display: flex;
+                gap: 8px;
+            }
+            .btn {
+                background: var(--accent);
+                border: none;
+                color: #06202f;
+                padding: 8px 12px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 600;
+            }
+            .btn.secondary {
+                background: transparent;
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                color: var(--muted);
+            }
+
+            .grid {
+                display: grid;
+                grid-template-columns: 1fr 420px;
+                gap: 16px;
+                margin-top: 18px;
+            }
+            .card {
+                background: var(--card);
+                padding: 14px;
+                border-radius: 10px;
+                box-shadow: 0 8px 24px rgba(2, 6, 23, 0.6);
+            }
+            .card-title {
+                font-size: 14px;
+                margin: 0 0 8px 0;
+            }
+
+            canvas {
+                width: 100% !important;
+                height: 280px !important;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13px;
+            }
+            thead th {
+                color: var(--muted);
+                text-align: left;
+                padding: 8px 6px;
+                font-weight: 600;
+                font-size: 12px;
+            }
+            tbody td {
+                padding: 10px 6px;
+                border-top: 1px solid rgba(255, 255, 255, 0.03);
+            }
+            .badge {
+                display: inline-block;
+                padding: 6px 10px;
+                border-radius: 999px;
+                font-weight: 700;
+                font-size: 12px;
+            }
+
+            .badge-healthy {
+                background: #0f7a4f;
+                color: #e6fff0;
+            }
+            .badge-medium {
+                background: #ffb020;
+                color: #2b1700;
+            }
+            .badge-high {
+                background: #ff6b6b;
+                color: #2b0707;
+            }
+            .badge-anom {
+                background: #4db1ff;
+                color: #022434;
+            }
+
+            .merchant-lookup {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+            input[type="number"] {
+                background: var(--glass);
+                border: 1px solid rgba(255, 255, 255, 0.03);
+                padding: 10px;
+                border-radius: 8px;
+                color: #e6eef8;
+            }
+            .small {
+                font-size: 12px;
+                color: var(--muted);
+            }
+
+            .kpi-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+
+            .muted {
+                color: var(--muted);
+            }
+            .mono {
+                font-family:
+                    ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono",
+                    "Courier New", monospace;
+            }
+
+            @media (max-width: 980px) {
+                .grid {
+                    grid-template-columns: 1fr;
+                }
+                canvas {
+                    height: 220px !important;
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="container">
+            <header>
+                <div>
+                    <h1>PulseFlow</h1>
+                    <p class="subtitle">Merchant risk monitoring — live</p>
+                </div>
+                <div style="margin-left: auto; text-align: right">
+                    <div class="small muted">
+                        API Status: <span id="api-status">unknown</span>
+                    </div>
+                    <div class="small muted">
+                        Updated: <span id="updated-at">—</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label">Total merchants</div>
+                    <div id="total-merchants" class="stat-value">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Anomalies</div>
+                    <div id="total-anomalies" class="stat-value">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg fraud rate</div>
+                    <div id="avg-fraud-rate" class="stat-value">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg survival (90d)</div>
+                    <div id="avg-survival-90" class="stat-value">—</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn" id="refresh-all">Refresh</button>
+                <button class="btn secondary" id="refresh-charts">
+                    Charts
+                </button>
+                <button class="btn secondary" id="refresh-risk">
+                    High-risk
+                </button>
+                <div style="flex: 1"></div>
+                <div class="merchant-lookup">
+                    <input
+                        id="merchant-id"
+                        type="number"
+                        placeholder="Enter card1 (merchant id)"
+                    />
+                    <button class="btn" id="lookup-btn">Lookup</button>
+                    <button class="btn secondary" id="score-btn">Score</button>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div>
+                    <div class="card">
+                        <h3 class="card-title">Cluster distribution</h3>
+                        <canvas id="clusterCountChart"></canvas>
+                    </div>
+
+                    <div class="card" style="margin-top: 12px">
+                        <h3 class="card-title">Avg fraud rate by cluster</h3>
+                        <canvas id="clusterFraudChart"></canvas>
+                    </div>
+
+                    <div class="card" style="margin-top: 12px">
+                        <h3 class="card-title">Recent transactions</h3>
+                        <div style="max-height: 280px; overflow: auto">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Merchant</th>
+                                        <th>Amount</th>
+                                        <th>Prod</th>
+                                        <th>Fraud</th>
+                                        <th>Risk</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-tx-body">
+                                    <tr>
+                                        <td colspan="7" class="muted">
+                                            Loading…
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="card">
+                        <h3 class="card-title">High risk merchants</h3>
+                        <div style="max-height: 260px; overflow: auto">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Merchant</th>
+                                        <th>Cluster</th>
+                                        <th>Fraud</th>
+                                        <th>Survival90</th>
+                                        <th>Anomaly</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="risk-table-body">
+                                    <tr>
+                                        <td colspan="6" class="muted">
+                                            Loading…
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-top: 12px">
+                        <h3 class="card-title">Live alerts</h3>
+                        <div style="max-height: 200px; overflow: auto">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Txn</th>
+                                        <th>Merchant</th>
+                                        <th>Risk</th>
+                                        <th>Reason</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="alerts-body">
+                                    <tr>
+                                        <td colspan="5" class="muted">
+                                            Loading…
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-top: 12px">
+                        <h3 class="card-title">Merchant details</h3>
+                        <div id="merchant-details" class="mono muted">
+                            No merchant selected
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="height: 18px"></div>
+            <div class="small muted">
+                Built for PulseFlow — uses API endpoints from the service
+            </div>
+        </div>
+
+        <script>
+            // Cluster colors (keep aligned with backend cluster labels)
+            const CLUSTER_COLORS = {
+                Healthy: "#16a34a",
+                "Medium Risk": "#f59e0b",
+                "High Risk": "#ef4444",
+                Anomalous: "#38bdf8",
+            };
+
+            function clusterColor(label) {
+                return CLUSTER_COLORS[label] || "#94a3b8";
+            }
+
+            function clusterBadge(label) {
+                const color = clusterColor(label);
+                const bg =
+                    label === "Healthy"
+                        ? "badge-healthy"
+                        : label.includes("Medium")
+                          ? "badge-medium"
+                          : label.includes("High")
+                            ? "badge-high"
+                            : "badge-anom";
+                return `<span class="badge ${bg}">${label}</span>`;
+            }
+
+            async function fetchJSON(url, opts) {
+                try {
+                    const res = await fetch(url, opts);
+                    if (!res.ok)
+                        throw new Error(`${res.status} ${res.statusText}`);
+                    return await res.json();
+                } catch (e) {
+                    console.error("fetch error", url, e);
+                    return null;
+                }
+            }
+
+            // KPI / stats
+            async function loadStats() {
+                const d = await fetchJSON("/merchants/stats");
+                if (!d) return;
+                document.getElementById("total-merchants").textContent =
+                    d.total_merchants ?? "—";
+                document.getElementById("total-anomalies").textContent =
+                    d.total_anomalies ?? "—";
+                document.getElementById("avg-fraud-rate").textContent =
+                    d.avg_fraud_rate !== null && d.avg_fraud_rate !== undefined
+                        ? Number(d.avg_fraud_rate).toFixed(3)
+                        : "—";
+                document.getElementById("avg-survival-90").textContent =
+                    d.avg_survival_90 !== null &&
+                    d.avg_survival_90 !== undefined
+                        ? Number(d.avg_survival_90).toFixed(3)
+                        : "—";
+                document.getElementById("api-status").textContent = "ok";
+                document.getElementById("updated-at").textContent =
+                    new Date().toLocaleString();
+            }
+
+            let clusterCountChart = null;
+            let clusterFraudChart = null;
+
+            async function loadCharts() {
+                const stats = await fetchJSON("/merchants/cluster-stats");
+                if (!stats) return;
+
+                const labels = stats.map((s) => s.cluster_label);
+                const counts = stats.map((s) => Number(s.count));
+                const avgFraud = stats.map((s) =>
+                    Number(s.avg_fraud_rate || 0),
+                );
+                const colors = labels.map((l) => clusterColor(l));
+
+                // Cluster count pie / doughnut
+                const ctx1 = document
+                    .getElementById("clusterCountChart")
+                    .getContext("2d");
+                if (clusterCountChart) clusterCountChart.destroy();
+                clusterCountChart = new Chart(ctx1, {
+                    type: "doughnut",
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                data: counts,
+                                backgroundColor: colors,
+                                borderWidth: 0,
+                            },
+                        ],
+                    },
+                    options: {
+                        plugins: {
+                            legend: {
+                                position: "bottom",
+                                labels: {
+                                    color: "#cbd5e1",
+                                    font: { size: 12 },
+                                },
+                            },
+                        },
+                        maintainAspectRatio: false,
+                    },
+                });
+
+                // Avg fraud bar
+                const ctx2 = document
+                    .getElementById("clusterFraudChart")
+                    .getContext("2d");
+                if (clusterFraudChart) clusterFraudChart.destroy();
+                clusterFraudChart = new Chart(ctx2, {
+                    type: "bar",
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: "Avg fraud rate",
+                                data: avgFraud,
+                                backgroundColor: colors,
+                                borderRadius: 6,
+                                borderSkipped: false,
+                            },
+                        ],
+                    },
+                    options: {
+                        scales: {
+                            x: {
+                                ticks: { color: "#cbd5e1" },
+                                grid: { color: "rgba(255,255,255,0.02)" },
+                            },
+                            y: {
+                                ticks: {
+                                    color: "#cbd5e1",
+                                    callback: (v) => (v * 100).toFixed(1) + "%",
+                                },
+                                grid: { color: "rgba(255,255,255,0.02)" },
+                            },
+                        },
+                        plugins: { legend: { display: false } },
+                        maintainAspectRatio: false,
+                    },
+                });
+            }
+
+            async function loadRiskTable() {
+                const data = await fetchJSON("/merchants/high-risk");
+                const tbody = document.getElementById("risk-table-body");
+                tbody.innerHTML = "";
+                if (!data || !data.length) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="6" class="muted">No high-risk merchants</td></tr>';
+                    return;
+                }
+
+                for (const r of data) {
+                    const tr = document.createElement("tr");
+                    const clusterCell = `<td>${clusterBadge(r.cluster_label ?? "Unknown")}</td>`;
+                    tr.innerHTML = `
+          <td class="mono">${r.card1}</td>
+          ${clusterCell}
+          <td>${Number(r.fraud_rate || 0).toFixed(3)}</td>
+          <td>${r.survival_90 !== null && r.survival_90 !== undefined ? Number(r.survival_90).toFixed(3) : "—"}</td>
+          <td>${r.is_anomaly ? "YES" : "no"}</td>
+          <td><button class="btn" data-card1="${r.card1}">Score</button></td>
+        `;
+                    tbody.appendChild(tr);
+                }
+
+                // attach score handlers
+                tbody.querySelectorAll("button[data-card1]").forEach((b) =>
+                    b.addEventListener("click", async (ev) => {
+                        const id = Number(
+                            ev.currentTarget.getAttribute("data-card1"),
+                        );
+                        await scoreMerchantId(id);
+                    }),
+                );
+            }
+
+            async function loadRecentTx() {
+                const data = await fetchJSON("/transactions/recent");
+                const tbody = document.getElementById("recent-tx-body");
+                tbody.innerHTML = "";
+                if (!data || !data.length) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="7" class="muted">No recent transactions</td></tr>';
+                    return;
+                }
+                for (const t of data.slice(0, 100)) {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+          <td class="mono">${t.transaction_id}</td>
+          <td class="mono">${t.card1}</td>
+          <td>${Number(t.amount).toFixed(2)}</td>
+          <td>${t.product_cd || ""}</td>
+          <td>${t.is_fraud ? "YES" : "no"}</td>
+          <td>${t.risk_score !== null && t.risk_score !== undefined ? Number(t.risk_score).toFixed(3) : "—"}</td>
+          <td class="muted mono" style="font-size:12px">${t.processed_at ? new Date(t.processed_at).toLocaleString() : ""}</td>
+        `;
+                    tbody.appendChild(tr);
+                }
+            }
+
+            async function loadAlerts() {
+                const data = await fetchJSON("/alerts/live");
+                const tbody = document.getElementById("alerts-body");
+                tbody.innerHTML = "";
+                if (!data || !data.length) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="5" class="muted">No alerts</td></tr>';
+                    return;
+                }
+                for (const a of data) {
+                    const tr = document.createElement("tr");
+                    const reason = a.is_anomaly
+                        ? "Anomaly"
+                        : a.risk_score
+                          ? `High risk ${Number(a.risk_score).toFixed(3)}`
+                          : "—";
+                    tr.innerHTML = `
+          <td class="mono">${a.transaction_id}</td>
+          <td class="mono">${a.card1}</td>
+          <td>${a.risk_score !== null && a.risk_score !== undefined ? Number(a.risk_score).toFixed(3) : "—"}</td>
+          <td>${reason}</td>
+          <td class="muted mono">${a.processed_at ? new Date(a.processed_at).toLocaleString() : ""}</td>
+        `;
+                    tbody.appendChild(tr);
+                }
+            }
+
+            async function lookupMerchant() {
+                const id = Number(document.getElementById("merchant-id").value);
+                const el = document.getElementById("merchant-details");
+                el.classList.remove("muted");
+                if (!id) {
+                    el.textContent =
+                        "Enter a merchant id (card1) and click Lookup.";
+                    return;
+                }
+                el.textContent = "Loading...";
+                const m = await fetchJSON(`/merchant/${id}`);
+                if (!m || m.error) {
+                    el.textContent = `Merchant ${id} not found`;
+                    return;
+                }
+                // show some key-values
+                const rows = [];
+                rows.push(
+                    `<div><strong>card1:</strong> <span class="mono">${m.card1}</span></div>`,
+                );
+                rows.push(
+                    `<div><strong>cluster:</strong> ${clusterBadge(m.cluster_label || "Unknown")}</div>`,
+                );
+                rows.push(
+                    `<div><strong>total_tx:</strong> ${m.total_transactions ?? "—"}</div>`,
+                );
+                rows.push(
+                    `<div><strong>fraud_rate:</strong> ${m.fraud_rate !== null && m.fraud_rate !== undefined ? Number(m.fraud_rate).toFixed(3) : "—"}</div>`,
+                );
+                rows.push(
+                    `<div><strong>survival_90:</strong> ${m.survival_90 !== null && m.survival_90 !== undefined ? Number(m.survival_90).toFixed(3) : "—"}</div>`,
+                );
+                rows.push(
+                    `<div style="margin-top:8px"><button class="btn" id="score-current">Score merchant</button></div>`,
+                );
+                el.innerHTML = rows.join("\n");
+                document
+                    .getElementById("score-current")
+                    .addEventListener("click", () => scoreMerchantId(id));
+            }
+
+            async function scoreMerchantId(card1) {
+                if (!card1) return alert("missing card1");
+                const res = await fetchJSON("/merchant/score", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ card1 }),
+                });
+                if (!res) {
+                    alert("scoring failed");
+                    return;
+                }
+                // show result in an alert for now and refresh tables
+                const msg = `card1: ${res.card1}\nscore: ${res.risk_score}\nrecommendation: ${res.recommendation}`;
+                alert(msg);
+                // refresh listings to reflect changes
+                await Promise.all([loadRiskTable(), loadCharts(), loadStats()]);
+            }
+
+            document
+                .getElementById("refresh-all")
+                .addEventListener("click", async () => {
+                    await Promise.all([
+                        loadStats(),
+                        loadCharts(),
+                        loadRiskTable(),
+                        loadRecentTx(),
+                        loadAlerts(),
+                    ]);
+                });
+            document
+                .getElementById("refresh-charts")
+                .addEventListener("click", loadCharts);
+            document
+                .getElementById("refresh-risk")
+                .addEventListener("click", loadRiskTable);
+            document
+                .getElementById("lookup-btn")
+                .addEventListener("click", lookupMerchant);
+            document
+                .getElementById("score-btn")
+                .addEventListener("click", () => {
+                    const id = Number(
+                        document.getElementById("merchant-id").value,
+                    );
+                    if (!id) return alert("enter merchant id");
+                    scoreMerchantId(id);
+                });
+
+            // initial load
+            (async function init() {
+                await loadStats();
+                await loadCharts();
+                await loadRiskTable();
+                await loadRecentTx();
+                await loadAlerts();
+                // refresh every 30s
+                setInterval(async () => {
+                    await Promise.all([
+                        loadStats(),
+                        loadCharts(),
+                        loadRiskTable(),
+                        loadRecentTx(),
+                        loadAlerts(),
+                    ]);
+                }, 30000);
+            })();
+        </script>
+    </body>
+</html>
