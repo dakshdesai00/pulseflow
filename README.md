@@ -107,11 +107,7 @@ To flag suspicious merchant behaviors that diverge from standard cohorts, an Iso
 ### 3. Survival Analysis (Cox Proportional Hazards)
 Instead of predicting immediate churn, we model the merchant's operational lifespan using survival analysis. This estimates the probability that a merchant will remain active over time.
 *   **Timeline Metrics**:
-    *   **Duration ($T$)**: The time in days between the merchant's first and last recorded transactions:
-        $$
-        T = \frac{t_{\text{last}} - t_{\text{first}}}{86400}
-        $$
-        where $t_{\text{last}}$ is the timestamp of the last recorded transaction, and $t_{\text{first}}$ is the timestamp of the first recorded transaction.
+    *   **Duration ($T$)**: The time in days between the merchant's first and last recorded transactions: $`T = \frac{t_{\text{last}} - t_{\text{first}}}{86400}`$, where $`t_{\text{last}}`$ is the timestamp of the last recorded transaction, and $`t_{\text{first}}`$ is the timestamp of the first recorded transaction.
     *   **Event ($E$)**: A binary indicator representing merchant churn. A merchant is flagged as churned ($E = 1$) if their last transaction occurred before the final 5% window of the dataset duration (suggesting they went cold).
 *   **Regularization Tuning**: Swept L2 penalty weights (penalizers) at 0.0, 0.1, 0.5, and 1.0.
 *   **Selected Config**: **0.1 penalizer** to resolve convergence warnings caused by feature collinearity, resulting in a robust, generalizable Concordance Index.
@@ -135,39 +131,12 @@ When a new transaction arrives for a merchant ID (`card1`) that is not yet store
 ### 2. Incremental Feature Updates (The Math)
 To avoid expensive database queries, merchant features are computed **incrementally** inside the transaction consumer. For each new transaction, the pipeline updates running aggregates:
 
-*   **Count Update**:
-    $$
-    N \leftarrow N + 1
-    $$
-    where $N$ is the total transaction count (`total_transactions`).
-*   **Rolling Sum of Amounts** ($S$):
-    $$
-    S \leftarrow S + x
-    $$
-    where $S$ is the rolling sum of transaction amounts (`sum_amounts`), and $x$ is the new transaction amount (`TransactionAmt`).
-*   **Rolling Sum of Squares of Amounts** ($SS$):
-    $$
-    SS \leftarrow SS + x^2
-    $$
-    where $SS$ is the rolling sum of squares of transaction amounts (`sum_sq_amounts`).
-*   **Running Mean** ($\mu$):
-    $$
-    \mu = \frac{S}{N}
-    $$
-    where $\mu$ is the average transaction amount (`avg_amount`).
-*   **Running Standard Deviation** (calculated on-the-fly without history):
-    $$
-    \text{Var} = \frac{SS}{N} - \mu^2
-    $$
-    $$
-    \sigma = \sqrt{\max(0, \text{Var})}
-    $$
-    where $\sigma$ is the standard deviation (`std_amount`).
-*   **Running Percentages** (e.g., Night Transaction Ratio $P_{\text{night}}$):
-    $$
-    P_{\text{night}} = \frac{C_{\text{night}}}{N}
-    $$
-    where $C_{\text{night}}$ is the rolling count of transactions occurring at night (`night_transaction_count`), and $P_{\text{night}}$ is the ratio (`pct_night_txn`).
+*   **Count Update**: $`N \leftarrow N + 1`$, where $N$ is the total transaction count (`total_transactions`).
+*   **Rolling Sum of Amounts** ($S$): $`S \leftarrow S + x`$, where $S$ is the rolling sum of transaction amounts (`sum_amounts`), and $x$ is the new transaction amount (`TransactionAmt`).
+*   **Rolling Sum of Squares of Amounts** ($SS$): $`SS \leftarrow SS + x^2`$, where $SS$ is the rolling sum of squares of transaction amounts (`sum_sq_amounts`).
+*   **Running Mean** ($\mu$): $`\mu = \frac{S}{N}`$, where $\mu$ is the average transaction amount (`avg_amount`).
+*   **Running Standard Deviation** (calculated on-the-fly without history): $`\text{Var} = \frac{SS}{N} - \mu^2`$ and $`\sigma = \sqrt{\max(0, \text{Var})}`$, where $\sigma$ is the standard deviation (`std_amount`).
+*   **Running Percentages** (e.g., Night Transaction Ratio $`P_{\text{night}}`$): $`P_{\text{night}} = \frac{C_{\text{night}}}{N}`$, where $`C_{\text{night}}`$ is the rolling count of transactions occurring at night (`night_transaction_count`), and $`P_{\text{night}}`$ is the ratio (`pct_night_txn`).
 
 Using this mathematical formulation, updating features is an $O(1)$ operation, allowing real-time profiling.
 
@@ -186,9 +155,9 @@ $$
 $$
 
 where:
-*   $R_{\text{fraud}}$ is the merchant's historical fraud rate (`fraud_rate`).
-*   $A_{\text{anomaly}}$ is the binary anomaly indicator (`is_anomaly`).
-*   $S_{90}$ is the 90-day survival probability (`survival_90`).
+*   $`R_{\text{fraud}}`$ is the merchant's historical fraud rate (`fraud_rate`).
+*   $`A_{\text{anomaly}}`$ is the binary anomaly indicator (`is_anomaly`).
+*   $`S_{90}`$ is the 90-day survival probability (`survival_90`).
 
 Decisions are routed dynamically based on the composite score:
 
